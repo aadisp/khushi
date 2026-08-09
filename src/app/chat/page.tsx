@@ -30,6 +30,7 @@ import {
 } from "@/lib/session";
 import { hasPin } from "@/lib/auth";
 
+  
 type MessageType = "text" | "image" | "video";
 
 type ChatMessage = {
@@ -47,6 +48,12 @@ type ChatMessage = {
 const CHAT_ID = "ammu-aadi";
 
 export default function ChatPage() {
+  
+  const [notificationPermission, setNotificationPermission] =
+    useState<NotificationPermission | null>(null);
+
+  const [isRegisteringNotifications, setIsRegisteringNotifications] =
+    useState(false);
   const router = useRouter();
 
   const [partnerOnline, setPartnerOnline] = useState(false);
@@ -98,89 +105,124 @@ export default function ChatPage() {
    * Register this device for Firebase Cloud Messaging.
    */
   useEffect(() => {
-    if (!currentUser) return;
+  if (!currentUser) return;
 
-    const registerForNotifications = async () => {
-      try {
-        // Browser does not support notifications.
-        if (
-          typeof window === "undefined" ||
-          !("Notification" in window)
-        ) {
-          return;
-        }
+  if (
+    typeof window === "undefined" ||
+    !("Notification" in window)
+  ) {
+    setNotificationPermission(null);
+    return;
+  }
 
-        // Register the Firebase messaging service worker.
-        const registration =
-          await navigator.serviceWorker.register(
-            "/firebase-messaging-sw.js"
-          );
+  setNotificationPermission(
+    Notification.permission
+  );
+}, [currentUser]);
 
-        // Ask the user for notification permission.
-        const permission =
-          await Notification.requestPermission();
+const enableNotifications = async () => {
+  if (!currentUser || isRegisteringNotifications) {
+    return;
+  }
 
-        if (permission !== "granted") {
-          console.log(
-            "Notification permission was not granted."
-          );
-          return;
-        }
+  if (
+    typeof window === "undefined" ||
+    !("Notification" in window)
+  ) {
+    return;
+  }
 
-        const messaging =
-          await getFirebaseMessaging();
+  setIsRegisteringNotifications(true);
 
-        if (!messaging) {
-          console.log(
-            "Firebase Messaging is not supported on this device."
-          );
-          return;
-        }
+  try {
+    /*
+     * Ask for permission as a direct result
+     * of the user's button tap.
+     */
+    const permission =
+      await Notification.requestPermission();
 
-        const token = await getToken(
-          messaging,
-          {
-            vapidKey:
-              "BHR5AUdlkTTHzBdDOCtJEO7u7-tF03mExa-6y8is6ky5KtZmZW8Dq5bPWrmwy0kUfTPnS1RAjIaXbkJsKmBVin4",
-            serviceWorkerRegistration:
-              registration,
-          }
-        );
+    setNotificationPermission(permission);
 
-        if (!token) {
-          console.log(
-            "No FCM registration token was generated."
-          );
-          return;
-        }
+    if (permission !== "granted") {
+      console.log(
+        "Notification permission was not granted."
+      );
+      return;
+    }
 
-        /*
-         * Store this device's token under the
-         * currently logged-in user's document.
-         */
-        await setDoc(
-          doc(db, "users", currentUser.uid),
-          {
-            fcmTokens: arrayUnion(token),
-          },
-          {
-            merge: true,
-          }
-        );
+    /*
+     * Register the Firebase Messaging service worker.
+     */
+    const registration =
+      await navigator.serviceWorker.register(
+        "/firebase-messaging-sw.js"
+      );
 
-        console.log(
-          "Firebase notification token registered."
-        );
-      } catch (error) {
-        console.error(
-          "Failed to register for notifications:",
-          error
-        );
+    /*
+     * Get Firebase Messaging.
+     */
+    const messaging =
+      await getFirebaseMessaging();
+
+    if (!messaging) {
+      console.log(
+        "Firebase Messaging is not supported on this device."
+      );
+      return;
+    }
+
+    /*
+     * Generate the FCM token for this device.
+     */
+    const token = await getToken(
+      messaging,
+      {
+        vapidKey:
+          "BHR5AUdlkTTHzBdDOCtJEO7u7-tF03mExa-6y8is6ky5KtZmZW8Dq5bPWrmwy0kUfTPnS1RAjIaXbkJsKmBVin4",
+
+        serviceWorkerRegistration:
+          registration,
       }
-    };
+    );
 
-    void registerForNotifications();
-  }, [currentUser]);
+    if (!token) {
+      console.log(
+        "No FCM registration token was generated."
+      );
+      return;
+    }
+
+    /*
+     * Store this device's token.
+     */
+    await setDoc(
+      doc(
+        db,
+        "users",
+        currentUser.uid
+      ),
+      {
+        fcmTokens:
+          arrayUnion(token),
+      },
+      {
+        merge: true,
+      }
+    );
+
+    console.log(
+      "Firebase notification token registered."
+    );
+  } catch (error) {
+    console.error(
+      "Failed to register for notifications:",
+      error
+    );
+  } finally {
+    setIsRegisteringNotifications(false);
+  }
+};
 
   const currentEmail = currentUser?.email?.toLowerCase();
   const isAadi = currentEmail === "spaadi1601@gmail.com";
@@ -808,6 +850,31 @@ export default function ChatPage() {
 
   return (
     <main className="chat-screen">
+      {notificationPermission !== "granted" &&
+  notificationPermission !== "denied" && (
+    <button
+      type="button"
+      className="chat-notification-prompt"
+      onClick={() => void enableNotifications()}
+      disabled={isRegisteringNotifications}
+    >
+      <span
+        className="material-symbols-outlined"
+        style={{
+          fontVariationSettings:
+            "'FILL' 1",
+        }}
+      >
+        notifications
+      </span>
+
+      <span>
+        {isRegisteringNotifications
+          ? "Turning on notifications..."
+          : "Turn on notifications 💗"}
+      </span>
+    </button>
+  )}
       <header className="chat-header">
         <div className="chat-header-left">
           <button
