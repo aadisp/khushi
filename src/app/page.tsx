@@ -1,69 +1,191 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
-  return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { onAuthStateChanged } from "firebase/auth";
+
+import { auth } from "@/lib/firebase";
+import { hasPin } from "@/lib/auth";
+import {
+  isAllowedEmail,
+  isPinUnlocked,
+} from "@/lib/session";
+
+export default function HomePage() {
+  const router = useRouter();
+  const [ready, setReady] = useState(false);
+  const [avatar, setAvatar] = useState("/characters/aadi.png");
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (!user?.email || !isAllowedEmail(user.email)) {
+        router.replace("/login");
+        return;
+      }
+
+      try {
+        const pinExists = await hasPin();
+
+        if (!pinExists) {
+          router.replace("/set-pin");
+          return;
+        }
+
+        if (!isPinUnlocked(user.uid)) {
+          router.replace("/pin");
+          return;
+        }
+
+        setAvatar(
+          user.email.toLowerCase() === "spaadi1601@gmail.com"
+            ? "/characters/aadi.png"
+            : "/characters/ammu.png"
+        );
+        setReady(true);
+      } catch (error) {
+        console.error("Home authentication check failed:", error);
+        router.replace("/login");
+      }
+    });
+
+    return () => unsubscribe();
+  }, [router]);
+
+  if (!ready) {
+    return (
+      <main className="app-loading">
+        <div className="app-loading-heart">
+          <span
+            className="material-symbols-outlined"
+            style={{ fontVariationSettings: "'FILL' 1" }}
           >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+            favorite
+          </span>
         </div>
+        <p>Opening your little corner...</p>
       </main>
-    </div>
+    );
+  }
+
+  return (
+    <main className="home-screen">
+      <header className="home-header">
+        <div className="home-header-inner">
+          <button
+            type="button"
+            className="home-profile-button"
+            aria-label="Open settings"
+            onClick={() => router.push("/settings")}
+          >
+            <img
+              src={avatar}
+              alt="Your profile"
+              className="home-profile-image"
+            />
+          </button>
+
+          <h1>Khushi</h1>
+
+          <button
+            type="button"
+            className="home-settings-button"
+            aria-label="Settings"
+            onClick={() => router.push("/settings")}
+          >
+            <span
+              className="material-symbols-outlined"
+              style={{ fontVariationSettings: "'FILL' 1" }}
+            >
+              settings
+            </span>
+          </button>
+        </div>
+      </header>
+
+      <section className="home-content">
+        <Link href="/chat" className="home-gateway-card">
+          <div className="home-card-icon home-card-icon-chat">
+            <span
+              className="material-symbols-outlined"
+              style={{ fontVariationSettings: "'FILL' 1" }}
+            >
+              chat_bubble
+            </span>
+          </div>
+          <h2>Sweet Nothings</h2>
+          <p>Continue the conversation</p>
+        </Link>
+
+        <Link href="/calendar" className="home-gateway-card">
+          <div className="home-card-icon home-card-icon-calendar">
+            <span
+              className="material-symbols-outlined"
+              style={{ fontVariationSettings: "'FILL' 1" }}
+            >
+              calendar_today
+            </span>
+          </div>
+          <h2>Our Dates</h2>
+          <p>Plan the next adventure</p>
+        </Link>
+      </section>
+
+      {/* <nav className="home-bottom-nav" aria-label="Primary navigation">
+        <div className="home-bottom-nav-inner">
+          <Link href="/" className="home-nav-item active" aria-current="page">
+            <span
+              className="material-symbols-outlined"
+              style={{ fontVariationSettings: "'FILL' 1" }}
+            >
+              home
+            </span>
+            <span>Home</span>
+          </Link>
+
+          <Link href="/calendar" className="home-nav-item">
+            <span className="material-symbols-outlined">favorite</span>
+            <span>Dates</span>
+          </Link>
+
+          <Link href="/chat" className="home-nav-item">
+            <span className="material-symbols-outlined">chat_bubble</span>
+            <span>Chat</span>
+          </Link>
+
+          <Link href="/settings" className="home-nav-item">
+            <span className="material-symbols-outlined">settings</span>
+            <span>Settings</span>
+          </Link>
+        </div>
+      </nav> */}
+      <nav className="calendar-bottom-nav" aria-label="Primary navigation">
+
+        <Link href="/" className="calendar-nav-item" aria-current="page">
+          <span
+            className="material-symbols-outlined"
+            style={{ fontVariationSettings: "'FILL' 1" }}
+          >
+            home
+          </span>
+          <span>Home</span>
+        </Link>
+        
+          <Link href="/calendar" className="calendar-nav-item">
+          <span className="material-symbols-outlined">favorite</span>
+          <span>Dates</span>
+        </Link>
+
+        <Link href="/chat" className="calendar-nav-item">
+          <span className="material-symbols-outlined">chat_bubble</span>
+          <span>Chat</span>
+        </Link>
+
+        <Link href="/settings" className="calendar-nav-item">
+          <span className="material-symbols-outlined">settings</span>
+          <span>Settings</span>
+        </Link>
+      </nav>
+    </main>
   );
 }
