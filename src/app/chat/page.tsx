@@ -23,15 +23,12 @@ import {
   db,
   getFirebaseMessaging,
 } from "@/lib/firebase";
+import { getToken } from "firebase/messaging";
 import {
   isAllowedEmail,
   isPinUnlocked,
 } from "@/lib/session";
 import { hasPin } from "@/lib/auth";
-import {
-  getToken,
-  onMessage,
-} from "firebase/messaging";
 
 type MessageType = "text" | "image" | "video";
 
@@ -183,76 +180,6 @@ export default function ChatPage() {
     };
 
     void registerForNotifications();
-  }, [currentUser]);
-
-    /*
-   * Handle notifications while Khushi is open.
-   */
-  useEffect(() => {
-    if (!currentUser) return;
-
-    let unsubscribe: (() => void) | undefined;
-
-    const setupForegroundNotifications =
-      async () => {
-        try {
-          const messaging =
-            await getFirebaseMessaging();
-
-          if (!messaging) {
-            return;
-          }
-
-          unsubscribe = onMessage(
-            messaging,
-            (payload) => {
-              console.log(
-                "Foreground notification received:",
-                payload
-              );
-
-              const title =
-                payload.notification?.title ||
-                "Khushi";
-
-              const body =
-                payload.notification?.body ||
-                "You have a new message 💗";
-
-              /*
-               * Show a normal browser notification
-               * even though the chat is currently open.
-               */
-              if (
-                Notification.permission ===
-                "granted"
-              ) {
-                new Notification(
-                  title,
-                  {
-                    body,
-                    icon:
-                      "/icons/icon-192.png",
-                    badge:
-                      "/icons/icon-192.png",
-                  }
-                );
-              }
-            }
-          );
-        } catch (error) {
-          console.error(
-            "Failed to setup foreground notifications:",
-            error
-          );
-        }
-      };
-
-    void setupForegroundNotifications();
-
-    return () => {
-      unsubscribe?.();
-    };
   }, [currentUser]);
 
   const currentEmail = currentUser?.email?.toLowerCase();
