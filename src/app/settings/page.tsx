@@ -109,7 +109,7 @@ export default function SettingsPage() {
             <img
               src={currentAvatar}
               alt={isAadi ? "Aadi" : "Ammu"}
-              onClick={() => router.push("/home")}
+              onClick={() => router.push("/")}
             />
           </div>
 
@@ -145,7 +145,6 @@ export default function SettingsPage() {
               <img
                 src={currentAvatar}
                 alt={isAadi ? "Aadi" : "Ammu"}
-                onClick={() => router.push("/home")}
               />
             </div>
           </div>
