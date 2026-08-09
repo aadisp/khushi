@@ -76,19 +76,72 @@ export async function POST(
     const idToken =
       authorization.substring(7);
 
-    const adminAuth = getAuth(app);
+   const firebaseApiKey =
+  process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
 
-    const decodedToken =
-      await adminAuth.verifyIdToken(
-        idToken
-      );
+if (!firebaseApiKey) {
+  throw new Error(
+    "NEXT_PUBLIC_FIREBASE_API_KEY is missing."
+  );
+}
 
-    /*
-     * Only our two Khushi accounts are allowed
-     * to trigger notifications.
-     */
-    const senderEmail =
-      decodedToken.email?.toLowerCase();
+const verificationResponse =
+  await fetch(
+    `https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${firebaseApiKey}`,
+    {
+      method: "POST",
+
+      headers: {
+        "Content-Type":
+          "application/json",
+      },
+
+      body: JSON.stringify({
+        idToken,
+      }),
+    }
+  );
+
+if (!verificationResponse.ok) {
+  return NextResponse.json(
+    {
+      error:
+        "Invalid Firebase authentication token.",
+    },
+    {
+      status: 401,
+    }
+  );
+}
+
+const verificationData =
+  await verificationResponse.json();
+
+const authenticatedUser =
+  verificationData.users?.[0];
+
+if (!authenticatedUser) {
+  return NextResponse.json(
+    {
+      error:
+        "Authenticated user not found.",
+    },
+    {
+      status: 401,
+    }
+  );
+}
+
+const senderEmail =
+  authenticatedUser.email?.toLowerCase();
+
+const senderUid =
+  authenticatedUser.localId;
+
+/*
+ * Only our two Khushi accounts are allowed
+ * to trigger notifications.
+ */
 
     const allowedEmails = [
       "ammu32811@gmail.com",
@@ -153,21 +206,42 @@ export async function POST(
     /*
      * Find the recipient's Firebase Auth account.
      */
-    const recipient =
-      await adminAuth.getUserByEmail(
-        recipientEmail.toLowerCase()
-      );
+    const firestore =
+  getFirestore(app);
+
+const recipientQuery =
+  await firestore
+    .collection("users")
+    .where(
+      "email",
+      "==",
+      recipientEmail.toLowerCase()
+    )
+    .limit(1)
+    .get();
+
+if (recipientQuery.empty) {
+  return NextResponse.json({
+    success: true,
+    sent: 0,
+    reason:
+      "Recipient user document does not exist.",
+  });
+}
+
+const recipientDoc =
+  recipientQuery.docs[0];
+
+const recipientUid =
+  recipientDoc.id;
 
     /*
      * Get the recipient's saved FCM tokens.
      */
-    const firestore =
-      getFirestore(app);
-
     const recipientRef =
-      firestore.collection("users").doc(
-        recipient.uid
-      );
+  firestore
+    .collection("users")
+    .doc(recipientUid);
 
     const recipientSnapshot =
       await recipientRef.get();
