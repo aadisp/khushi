@@ -97,7 +97,7 @@ export default function LoginPage() {
         <h1 id="login-title" className="login-title">Khushi</h1>
 
         <p className="login-subtitle">
-          Welcome back. Enter your details to continue.
+          Welcome back! Enter your details to continue.
         </p>
 
         <form className="login-form" onSubmit={handleSubmit}>
